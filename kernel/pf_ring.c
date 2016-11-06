@@ -7159,6 +7159,7 @@ static int ring_setsockopt(struct socket *sock,
   case SO_ADD_SRC_IP_LISTING:
     if(optlen == sizeof(listing_entry)) {
       listing_entry *entry;
+      int ret;
 
       if(unlikely(enable_debug))
 	    printk("[PF_RING] Allocating memory [adding listing entry]\n");
@@ -7172,7 +7173,6 @@ static int ring_setsockopt(struct socket *sock,
       if(copy_from_user(entry, optval, optlen))
 	    return(-EFAULT);
 
-      int ret;
       ret=radix_tree_insert(&radix_tree, entry->src_ip, entry->entry_class);
 
       if(ret)
