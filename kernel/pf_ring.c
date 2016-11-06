@@ -7172,7 +7172,11 @@ static int ring_setsockopt(struct socket *sock,
       if(copy_from_user(entry, optval, optlen))
 	    return(-EFAULT);
 
-      radix_tree_insert(&radix_tree, entry->src_ip, entry->entry_class);
+      int ret;
+      ret=radix_tree_insert(&radix_tree, entry->src_ip, entry->entry_class);
+
+      if(ret)
+	    printk("[PF_RING] ERROR: radix_tree_insert returned %d\n",ret);
 
       kfree(entry);
     }
@@ -8447,9 +8451,15 @@ static int __init ring_init(void)
 void listing_classify_packet(struct pfring_pkthdr *hdr,
                              struct pf_ring_socket *pfr){
 
+    if(unlikely(enable_debug))
+	  printk("[PF_RING] Looking-up for listing\n");
+
     /* src ip listing */
     if(pfr->src_ip_listing_enabled & hdr->extended_hdr.parsed_pkt.ipv4_src)
     {
+       if(unlikely(enable_debug))
+	     printk("[PF_RING] Looking-up for listing: IPv4 SRC present\n");
+
        hdr->extended_hdr.parsed_pkt.src_ip_listing_class=radix_tree_lookup(&radix_tree, hdr->extended_hdr.parsed_pkt.ipv4_src);
     }
 }
