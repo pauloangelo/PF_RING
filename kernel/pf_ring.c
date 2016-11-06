@@ -110,6 +110,8 @@
 #include <net/ipv6.h>
 #include <linux/pci.h>
 #include <asm/shmparam.h>
+#include <linux/radix-tree.h>
+RADIX_TREE(radix_tree, GFP_KERNEL);
 
 #ifndef UTS_RELEASE
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33))
@@ -342,6 +344,7 @@ static int pfring_release_zc_dev(struct pf_ring_socket *pfr);
 
 static int  get_fragment_app_id(u_int32_t ipv4_src_host, u_int32_t ipv4_dst_host, u_int16_t fragment_id, u_int8_t more_fragments);
 static void add_fragment_app_id(u_int32_t ipv4_src_host, u_int32_t ipv4_dst_host, u_int16_t fragment_id, u_int8_t app_id);
+void listing_classify_packet(struct pfring_pkthdr *hdr, struct pf_ring_socket *pfr);
 
 /* Extern */
 extern
@@ -2867,6 +2870,9 @@ static inline int add_pkt_to_ring(struct sk_buff *skb,
      && (channel_id != -1 /* any channel */)
      && (!(pfr->channel_id_mask & the_bit)))
     return(0); /* Wrong channel */
+
+  /* listing */
+  listing_classify_packet(hdr,pfr);
 
   if(real_skb)
     return(copy_data_to_ring(skb, pfr, hdr, displ, offset, NULL, 0, clone_id));
@@ -7144,6 +7150,59 @@ static int ring_setsockopt(struct socket *sock,
     }
     break;
 
+  case SO_SET_SRC_IP_LISTING:
+    pfr->src_ip_listing_enabled = 1;
+    /* TODO: create one tree for each ring */
+    // pfr->listing_radix_tree;
+    break;
+
+  case SO_ADD_SRC_IP_LISTING:
+    if(optlen == sizeof(listing_entry)) {
+      listing_entry *entry;
+
+      if(unlikely(enable_debug))
+	    printk("[PF_RING] Allocating memory [adding listing entry]\n");
+
+      entry = (listing_entry *)
+	    kcalloc(1, sizeof(listing_entry), GFP_KERNEL);
+
+      if(entry == NULL)
+	    return(-EFAULT);
+
+      if(copy_from_user(entry, optval, optlen))
+	    return(-EFAULT);
+
+      radix_tree_insert(&radix_tree, entry->src_ip, entry->entry_class);
+
+      kfree(entry);
+    }
+
+    break;
+
+  case SO_REMOVE_SRC_IP_LISTING:
+
+    if(optlen == sizeof(listing_entry)) {
+      listing_entry *entry;
+
+      if(unlikely(enable_debug))
+	    printk("[PF_RING] Allocating memory [remove listing entry]\n");
+
+      entry = (listing_entry *)
+	    kcalloc(1, sizeof(listing_entry), GFP_KERNEL);
+
+      if(entry == NULL)
+	    return(-EFAULT);
+
+      if(copy_from_user(entry, optval, optlen))
+	    return(-EFAULT);
+
+      radix_tree_delete(&radix_tree, entry->src_ip);
+
+      kfree(entry);
+    }
+
+    break;
+
   default:
     found = 0;
     break;
@@ -8383,6 +8442,16 @@ static int __init ring_init(void)
 
   pfring_enabled = 1;
   return 0;
+}
+
+void listing_classify_packet(struct pfring_pkthdr *hdr,
+                             struct pf_ring_socket *pfr){
+
+    /* src ip listing */
+    if(pfr->src_ip_listing_enabled & hdr->extended_hdr.parsed_pkt.ipv4_src)
+    {
+       hdr->extended_hdr.parsed_pkt.src_ip_listing_class=radix_tree_lookup(&radix_tree, hdr->extended_hdr.parsed_pkt.ipv4_src);
+    }
 }
 
 module_init(ring_init);

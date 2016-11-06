@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 #endif /* __KERNEL__ */
 
+
 #define RING_MAGIC
 #define RING_MAGIC_VALUE             0x88
 #define RING_FLOWSLOT_VERSION          16 /*
@@ -100,6 +101,9 @@
 
 /* Other *sockopt */
 #define SO_SELECT_ZC_DEVICE              190
+#define SO_SET_SRC_IP_LISTING            191
+#define SO_ADD_SRC_IP_LISTING            192
+#define SO_REMOVE_SRC_IP_LISTING         193
 
 /* Error codes */
 #define PF_RING_ERROR_GENERIC              -1
@@ -290,6 +294,7 @@ struct pkt_parsing_info {
   tunnel_info tunnel;
   int last_matched_rule_id; /* If > 0 identifies a rule that matched the packet */
   struct pkt_offset offset; /* Offsets of L3/L4/payload elements */
+  void *src_ip_listing_class; /* Pointer to identified class */
 };
 
 #define UNKNOWN_INTERFACE          -1
@@ -440,6 +445,12 @@ typedef struct {
 
   filtering_internals internals;   /* PF_RING internal fields */
 } filtering_rule;
+
+typedef struct {
+  unsigned long src_ip;
+  unsigned long dst_ip;
+  void *entry_class;
+} listing_entry;
 
 /* *********************************** */
 
@@ -1107,6 +1118,10 @@ struct pf_ring_socket {
   /* Userspace cluster (ZC) */
   struct cluster_referee *cluster_referee;
   cluster_client_type cluster_role;
+  
+  /* IP listing */ 
+  u_int8_t src_ip_listing_enabled;
+  struct radix_tree_root *listing_radix_tree;
 };
 
 /* **************************************** */

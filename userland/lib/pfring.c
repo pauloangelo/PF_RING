@@ -186,6 +186,7 @@ pfring *pfring_open(const char *device_name, u_int32_t caplen, u_int32_t flags) 
   ring->promisc             = !!(flags & PF_RING_PROMISC);
   ring->reentrant           = !!(flags & PF_RING_REENTRANT);
   ring->long_header         = !!(flags & PF_RING_LONG_HEADER);
+  ring->src_ip_listing      = !!(flags & PF_RING_SRC_IP_LISTING);
   ring->rss_mode            = (flags & PF_RING_ZC_NOT_REPROGRAM_RSS) ? PF_RING_ZC_NOT_REPROGRAM_RSS : (
                               (flags & PF_RING_ZC_SYMMETRIC_RSS) ? PF_RING_ZC_SYMMETRIC_RSS : (
                               (flags & PF_RING_ZC_FIXED_RSS_Q_0) ? PF_RING_ZC_FIXED_RSS_Q_0 : 0));
@@ -1367,3 +1368,20 @@ u_int32_t pfring_get_interface_speed(pfring *ring) {
 
 /* **************************************************** */
 
+int pfring_add_src_ip_list_entry(pfring *ring, unsigned long src_ip, void *src_ip_class) {
+  if(ring && ring->add_src_ip_list_entry && ring->src_ip_listing)
+    return ring->add_src_ip_list_entry(ring, src_ip, src_ip_class);
+
+  return(PF_RING_ERROR_NOT_SUPPORTED);
+}
+
+/* **************************************************** */
+
+int pfring_remove_src_ip_list_entry(pfring *ring, unsigned long src_ip) {
+  if(ring && ring->remove_src_ip_list_entry && ring->src_ip_listing)
+    return ring->remove_src_ip_list_entry(ring, src_ip);
+
+  return(PF_RING_ERROR_NOT_SUPPORTED);
+}
+
+/* **************************************************** */

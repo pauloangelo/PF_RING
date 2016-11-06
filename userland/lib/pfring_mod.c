@@ -172,6 +172,15 @@ int pfring_mod_open_setup(pfring *ring) {
     }
   }
 
+  if(ring->src_ip_listing) {
+    int dummy2 = 0;
+    if(setsockopt(ring->fd, 0, SO_ENABLE_RX_PACKET_BOUNCE, &dummy2, sizeof(dummy2)) < 0) {
+      fprintf(stderr, "[PF_RING] failure enabling src ip listing\n");
+      close(ring->fd);
+      return -1;
+    }
+  }
+
   return(0);
 }
 
@@ -230,6 +239,8 @@ int pfring_mod_open(pfring *ring) {
   ring->send_last_rx_packet = pfring_mod_send_last_rx_packet;
   ring->set_bound_dev_name = pfring_mod_set_bound_dev_name;
   ring->get_interface_speed = pfring_mod_get_interface_speed;
+  ring->add_src_ip_list_entry    = pfring_mod_add_src_ip_list_entry;
+  ring->remove_src_ip_list_entry = pfring_mod_remove_src_ip_list_entry;
 
   ring->poll_duration = DEFAULT_POLL_DURATION;
 
@@ -1040,3 +1051,39 @@ u_int32_t pfring_mod_get_interface_speed(pfring *ring) {
  
 /* *************************************** */
 
+int pfring_mod_add_src_ip_list_entry(pfring *ring, unsigned long src_ip, void *src_ip_class) {
+
+  int rc = -1;
+
+  if(!src_ip_class || !src_ip)
+    return -1;
+
+  listing_entry entry;
+  entry.src_ip = src_ip;
+  entry.entry_class = src_ip_class;
+
+  rc = setsockopt(ring->fd, 0, SO_ADD_SRC_IP_LISTING,
+		          &entry, sizeof(entry));
+   
+  return rc;
+}
+
+/* **************************************************** */
+
+int pfring_mod_remove_src_ip_list_entry(pfring *ring, unsigned long src_ip) {
+
+  int rc = -1;
+
+  if(!src_ip)
+    return -1;
+
+  listing_entry entry;
+  entry.src_ip = src_ip;
+
+  rc = setsockopt(ring->fd, 0, SO_REMOVE_SRC_IP_LISTING,
+		          &entry, sizeof(entry));
+   
+  return rc;
+}
+
+/* **************************************************** */

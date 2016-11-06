@@ -183,6 +183,7 @@ struct __pfring {
   u_int8_t initialized, enabled, long_header, force_timestamp;
   u_int8_t strip_hw_timestamp, disable_parsing, disable_timestamp, ixia_timestamp_enabled;
   u_int8_t vss_apcon_timestamp_enabled, chunk_mode_enabled, userspace_bpf, force_userspace_bpf;
+  u_int8_t src_ip_listing;
   u_int32_t rss_mode;
   packet_direction direction; /* Specify the capture direction for packets */
   socket_mode mode;
@@ -285,7 +286,9 @@ struct __pfring {
   int       (*recv_chunk)                   (pfring *, void **, pfring_chunk_info *, u_int8_t); 
   int       (*set_bound_dev_name)           (pfring *, char *);
   int       (*get_metadata)         	    (pfring *, u_char **, u_int32_t *);
-  u_int32_t (*get_interface_speed)	    (pfring *);
+  u_int32_t (*get_interface_speed)	        (pfring *);
+  int       (*add_src_ip_list_entry)        (pfring *, unsigned long, void *);
+  int       (*remove_src_ip_list_entry)     (pfring *, unsigned long);
 
   /* Silicom Redirector Only */
   struct {
@@ -339,6 +342,7 @@ struct __pfring {
 #define PF_RING_ZC_NOT_REPROGRAM_RSS (1 << 14) /**< pfring_open() flag: Do not touch/reprogram hw RSS */ 
 #define PF_RING_VSS_APCON_TIMESTAMP  (1 << 15) /**< pfring_open() flag: Enable apcon.com/vssmonitoring.com hardware timestamp support+stripping. */
 #define PF_RING_ZC_IPONLY_RSS	     (1 << 16) /**< pfring_open() flag: Compute RSS on src/dst IP only (not 4-tuple) */ 
+#define PF_RING_SRC_IP_LISTING	     (1 << 17) /**< pfring_open() flag: Enable listing (e.g. white/black-listing) for SRC IPs */ 
 
 /* ********************************* */
 
@@ -1235,6 +1239,27 @@ void pfring_handle_vss_apcon_hw_timestamp(u_char* buffer, struct pfring_pkthdr *
  */
 
 u_int32_t pfring_get_interface_speed(pfring *ring);
+
+/**
+ * Add an IP -> class to the table. 
+ * PF_RING will classify the collected packets using this information.
+ *
+ * hdr->extended_hdr.parsed_pkt->src_ip_listing_class
+ *
+ * @param ring       The PF_RING handle on which the rule will be removed.
+ * @param src_ip     The IP to be added in the table
+ * @param list_table A pointer to the class for this IP.
+ * @return 0 on success, a negative value otherwise (e.g. the rule does not exist).
+ */
+int pfring_add_src_ip_list_entry(pfring *ring, unsigned long src_ip, void *src_ip_class);
+
+/**
+ * Remove a previously added src ip entry
+ * @param ring      The PF_RING handle on which the src ip entry will be removed.
+ * @param src_ip    The key of a previously added src_ip that will be removed.
+ * @return 0 on success, a negative value otherwise (e.g. the entry does not exist).
+ */
+int pfring_remove_src_ip_list_entry(pfring *ring, unsigned long src_ip);
 
 /* ********************************* */
 
