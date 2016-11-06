@@ -174,7 +174,7 @@ int pfring_mod_open_setup(pfring *ring) {
 
   if(ring->src_ip_listing) {
     int dummy2 = 0;
-    if(setsockopt(ring->fd, 0, SO_ENABLE_RX_PACKET_BOUNCE, &dummy2, sizeof(dummy2)) < 0) {
+    if(setsockopt(ring->fd, 0, SO_SET_SRC_IP_LISTING, &dummy2, sizeof(dummy2)) < 0) {
       fprintf(stderr, "[PF_RING] failure enabling src ip listing\n");
       close(ring->fd);
       return -1;

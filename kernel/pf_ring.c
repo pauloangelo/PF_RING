@@ -111,7 +111,7 @@
 #include <linux/pci.h>
 #include <asm/shmparam.h>
 #include <linux/radix-tree.h>
-RADIX_TREE(radix_tree, GFP_KERNEL);
+static RADIX_TREE(listing_radix_tree, GFP_KERNEL);
 
 #ifndef UTS_RELEASE
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33))
@@ -7160,7 +7160,7 @@ static int ring_setsockopt(struct socket *sock,
     if(optlen == sizeof(listing_entry)) {
       listing_entry *entry;
       int ret;
-
+    
       if(unlikely(enable_debug))
 	    printk("[PF_RING] Allocating memory [adding listing entry]\n");
 
@@ -7173,7 +7173,10 @@ static int ring_setsockopt(struct socket *sock,
       if(copy_from_user(entry, optval, optlen))
 	    return(-EFAULT);
 
-      ret=radix_tree_insert(&radix_tree, entry->src_ip, entry->entry_class);
+      if(unlikely(enable_debug))
+	    printk("[PF_RING] Adding IPv4 src: %lu\n",entry->src_ip);
+
+      ret=radix_tree_insert(&listing_radix_tree, entry->src_ip, entry->entry_class);
 
       if(ret)
 	    printk("[PF_RING] ERROR: radix_tree_insert returned %d\n",ret);
@@ -7200,7 +7203,7 @@ static int ring_setsockopt(struct socket *sock,
       if(copy_from_user(entry, optval, optlen))
 	    return(-EFAULT);
 
-      radix_tree_delete(&radix_tree, entry->src_ip);
+      radix_tree_delete(&listing_radix_tree, entry->src_ip);
 
       kfree(entry);
     }
@@ -8451,16 +8454,31 @@ static int __init ring_init(void)
 void listing_classify_packet(struct pfring_pkthdr *hdr,
                              struct pf_ring_socket *pfr){
 
+    unsigned long src_ip;
+    void *class_found;
+    src_ip=0;
+
+    if(hdr->extended_hdr.parsed_pkt.ipv4_src)
+       src_ip = hdr->extended_hdr.parsed_pkt.ipv4_src;
+
     if(unlikely(enable_debug))
-	  printk("[PF_RING] Looking-up for listing\n");
+    {
+	  printk("[PF_RING] Looking-up for listing. Enabled: %d\n",pfr->src_ip_listing_enabled);
+	  printk("[PF_RING] Looking-up for listing. IPv4 src: %lu\n",src_ip);
+    }
 
     /* src ip listing */
-    if(pfr->src_ip_listing_enabled & hdr->extended_hdr.parsed_pkt.ipv4_src)
+    if(pfr->src_ip_listing_enabled & src_ip)
     {
        if(unlikely(enable_debug))
 	     printk("[PF_RING] Looking-up for listing: IPv4 SRC present\n");
 
-       hdr->extended_hdr.parsed_pkt.src_ip_listing_class=radix_tree_lookup(&radix_tree, hdr->extended_hdr.parsed_pkt.ipv4_src);
+       class_found=radix_tree_lookup(&listing_radix_tree, src_ip);
+
+       if((unlikely(enable_debug)) & (class_found!=NULL))
+       {
+         hdr->extended_hdr.parsed_pkt.src_ip_listing_class=class_found;
+       }
     }
 }
 
