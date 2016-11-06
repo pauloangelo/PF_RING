@@ -8475,7 +8475,7 @@ void listing_classify_packet(struct pfring_pkthdr *hdr,
 
        class_found=radix_tree_lookup(&listing_radix_tree, src_ip);
 
-       if((unlikely(enable_debug)) & (class_found!=NULL))
+       if(class_found!=NULL)
        {
          hdr->extended_hdr.parsed_pkt.src_ip_listing_class=class_found;
        }
