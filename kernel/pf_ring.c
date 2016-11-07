@@ -8468,7 +8468,7 @@ void listing_classify_packet(struct pfring_pkthdr *hdr,
     }
 
     /* src ip listing */
-    if(pfr->src_ip_listing_enabled & src_ip)
+    if(pfr->src_ip_listing_enabled>0 && src_ip>0)
     {
        if(unlikely(enable_debug))
 	     printk("[PF_RING] Looking-up for listing: IPv4 SRC present\n");
@@ -8477,6 +8477,9 @@ void listing_classify_packet(struct pfring_pkthdr *hdr,
 
        if(class_found!=NULL)
        {
+         if(unlikely(enable_debug))
+	       printk("[PF_RING] Class found\n");
+
          hdr->extended_hdr.parsed_pkt.src_ip_listing_class=class_found;
        }
     }
